@@ -100,50 +100,54 @@ def generate_license():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/verify-license', methods=['POST'])
+@app.route('/api/verify-license')
 def verify_license():
     """Lisans doğrulama"""
     try:
-        license_key = request.json.get('license_key')
-        hardware_id = request.json.get('hardware_id')
+        # API anahtarı kontrolü
+        api_key = request.headers.get('X-API-Key')
+        if not verify_api_key(api_key):
+            return jsonify({'error': 'Geçersiz API anahtarı'}), 401
+            
+        license_key = request.args.get('license_key')
+        hardware_id = request.args.get('hardware_id')
         
         if not license_key or not hardware_id:
             return jsonify({'error': 'Eksik parametreler'}), 400
         
-        # Lisansı bul
         license = License.query.filter_by(license_key=license_key).first()
+        
+        # Lisans kontrolü
         if not license:
-            return jsonify({'valid': False, 'message': 'Lisans bulunamadı'})
-        
-        # Aktif mi kontrol et
-        if not license.is_active:
-            return jsonify({'valid': False, 'message': 'Lisans deaktive edilmiş'})
-        
-        # Süre kontrolü
-        if datetime.utcnow() > license.expiry_date:
-            return jsonify({'valid': False, 'message': 'Lisans süresi dolmuş'})
-        
-        # Donanım ID kontrolü
-        if license.hardware_id and license.hardware_id != hardware_id:
-            return jsonify({'valid': False, 'message': 'Lisans başka bir cihaza ait'})
-        
-        # İlk aktivasyon ise donanım ID'sini kaydet
-        if not license.hardware_id:
-            license.hardware_id = hardware_id
-            license.activation_count += 1
+            return jsonify({'error': 'Lisans bulunamadı'}), 404
             
-        # Aktivasyon kaydı
-        activation = LicenseActivation(
-            license_id=license.id,
-            hardware_id=hardware_id,
-            ip_address=request.remote_addr
-        )
-        db.session.add(activation)
-        db.session.commit()
-        
+        if not license.is_active:
+            return jsonify({'error': 'Lisans aktif değil'}), 400
+            
+        if license.expiry_date < datetime.utcnow():
+            # Süresi dolan lisansı deaktive et
+            license.is_active = False
+            db.session.commit()
+            return jsonify({'error': 'Lisans süresi dolmuş'}), 400
+            
+        # Donanım ID kontrolü
+        if license.hardware_id:
+            if license.hardware_id != hardware_id:
+                return jsonify({'error': 'Lisans başka bir cihazda aktif'}), 400
+        else:
+            # İlk aktivasyon
+            return jsonify({'error': 'Lisans henüz aktive edilmemiş'}), 400
+            
+        # Aktivasyon sayısı kontrolü
+        if license.activation_count > 3:  # Maksimum aktivasyon sayısı
+            return jsonify({'error': 'Maksimum aktivasyon sayısı aşıldı'}), 400
+            
         return jsonify({
             'valid': True,
-            'expiry_date': license.expiry_date.isoformat()
+            'expiry_date': license.expiry_date.isoformat(),
+            'license_type': license.license_type,
+            'customer_name': license.customer_name,
+            'remaining_days': (license.expiry_date - datetime.utcnow()).days
         })
         
     except Exception as e:
@@ -171,6 +175,66 @@ def deactivate_license():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/activate-license', methods=['POST'])
+def activate_license():
+    """Lisans aktivasyonu"""
+    try:
+        api_key = request.headers.get('X-API-Key')
+        if not verify_api_key(api_key):
+            return jsonify({'error': 'Geçersiz API anahtarı'}), 401
+            
+        data = request.json
+        license_key = data.get('license_key')
+        hardware_id = data.get('hardware_id')
+        
+        if not license_key or not hardware_id:
+            return jsonify({'error': 'Eksik parametreler'}), 400
+        
+        license = License.query.filter_by(license_key=license_key).first()
+        
+        # Lisans kontrolü
+        if not license:
+            return jsonify({'error': 'Geçersiz lisans anahtarı'}), 404
+            
+        if not license.is_active:
+            return jsonify({'error': 'Lisans aktif değil'}), 400
+            
+        if license.expiry_date < datetime.utcnow():
+            license.is_active = False
+            db.session.commit()
+            return jsonify({'error': 'Lisans süresi dolmuş'}), 400
+            
+        # Aktivasyon sayısı kontrolü
+        if license.activation_count >= 3:
+            return jsonify({'error': 'Maksimum aktivasyon sayısı aşıldı'}), 400
+            
+        # Donanım ID kontrolü
+        if license.hardware_id and license.hardware_id != hardware_id:
+            return jsonify({'error': 'Lisans başka bir cihazda aktif'}), 400
+            
+        # Aktivasyon işlemi
+        license.hardware_id = hardware_id
+        license.activation_count += 1
+        
+        # Aktivasyon kaydı
+        activation = LicenseActivation(
+            license_id=license.id,
+            hardware_id=hardware_id,
+            ip_address=request.remote_addr
+        )
+        
+        db.session.add(activation)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Lisans başarıyla aktive edildi',
+            'expiry_date': license.expiry_date.isoformat(),
+            'remaining_days': (license.expiry_date - datetime.utcnow()).days
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Yardımcı fonksiyonlar
 def generate_unique_key():
     """Benzersiz lisans anahtarı oluştur"""
@@ -182,7 +246,8 @@ def generate_unique_key():
 
 def verify_api_key(api_key):
     """API anahtarı doğrulama"""
-    valid_api_key = 'your-api-key-here'  # Güvenli bir şekilde saklanmalı
+    # Güçlü ve karmaşık bir API anahtarı kullanın
+    valid_api_key = 'blt_2024_f8a92b1c7d4e6p9x'  # Bu anahtarı değiştirin ve güvenli bir yerde saklayın
     return api_key == valid_api_key
 
 # Admin panel rotaları
