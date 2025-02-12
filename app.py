@@ -47,6 +47,12 @@ class LicenseActivation(db.Model):
     activated_at = db.Column(db.DateTime, default=datetime.utcnow)
     ip_address = db.Column(db.String(45))
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), unique=True, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+
 # API rotaları
 @app.route('/api/generate-license', methods=['POST'])
 def generate_license():
@@ -165,11 +171,48 @@ def verify_api_key(api_key):
     return api_key == valid_api_key
 
 # Admin panel rotaları
+@app.route('/')
+def index():
+    """Ana sayfa yönlendirmesi"""
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('admin_licenses'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('admin_licenses'))
+            
+        return render_template('admin/login.html', error='Geçersiz kullanıcı adı veya şifre')
+        
+    return render_template('admin/login.html')
+
+@app.route('/admin')
 @app.route('/admin/licenses')
+@login_required
 def admin_licenses():
-    """Lisans yönetim paneli"""
-    licenses = License.query.all()
-    return render_template('admin/licenses.html', licenses=licenses)
+    try:
+        licenses = License.query.order_by(License.created_at.desc()).all()
+        stats = {
+            'total': len(licenses),
+            'active': sum(1 for l in licenses if l.is_active),
+            'expired': sum(1 for l in licenses if not l.is_active),
+            'never_activated': sum(1 for l in licenses if not l.hardware_id)
+        }
+        return render_template('admin/licenses.html', 
+                             licenses=licenses, 
+                             stats=stats,
+                             now=datetime.utcnow())
+    except Exception as e:
+        print(f"Template render hatası: {str(e)}")
+        return f"Hata: {str(e)}", 500
 
 @app.route('/admin/create-license', methods=['POST'])
 def create_license():
@@ -229,4 +272,11 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     with app.app_context():
         db.create_all()
+        # İlk admin kullanıcısını oluştur
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin', is_admin=True)
+            admin.set_password('bilist2024')
+            db.session.add(admin)
+            db.session.commit()
+            print("Admin kullanıcısı oluşturuldu!")
     app.run(host='0.0.0.0', port=port) 

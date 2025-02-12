@@ -10,4 +10,7 @@ services:
       - key: FLASK_APP
         value: app.py
       - key: FLASK_ENV
-        value: production 
+        value: production
+      - key: SECRET_KEY
+        value: bilist-secret-key-2024
+    healthCheckPath: /login 
