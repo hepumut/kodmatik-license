@@ -136,6 +136,48 @@
         </div>
     </div>
 
+    <!-- Yeni Lisans Modal -->
+    <div class="modal fade" id="createLicenseModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Yeni Lisans Oluştur</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Müşteri Adı</label>
+                        <input type="text" class="form-control" id="customerName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">E-posta</label>
+                        <input type="email" class="form-control" id="customerEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lisans Tipi</label>
+                        <select class="form-control" id="licenseType">
+                            <option value="standard">Standart</option>
+                            <option value="premium">Premium</option>
+                            <option value="enterprise">Kurumsal</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Süre (Gün)</label>
+                        <input type="number" class="form-control" id="duration" value="365">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notlar</label>
+                        <textarea class="form-control" id="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-success" onclick="createLicense()">Oluştur</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Şifre Değiştirme Modal -->
     <div class="modal fade" id="changePasswordModal">
         <div class="modal-dialog">
@@ -151,7 +193,13 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Yeni Şifre</label>
-                        <input type="password" class="form-control" id="newPassword">
+                        <input type="password" class="form-control" id="newPassword" oninput="checkPasswordStrength(this.value)">
+                        <div class="password-requirements mt-2 small">
+                            <div id="lengthCheck" class="text-danger">✗ En az 8 karakter</div>
+                            <div id="upperCheck" class="text-danger">✗ En az bir büyük harf</div>
+                            <div id="lowerCheck" class="text-danger">✗ En az bir küçük harf</div>
+                            <div id="specialCheck" class="text-danger">✗ En az bir özel karakter (!@#$%^&*(),.?":{}|<>+-)</div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -174,12 +222,72 @@
             });
     }
 
+    function createLicense() {
+        const data = {
+            customer_name: document.getElementById('customerName').value,
+            customer_email: document.getElementById('customerEmail').value,
+            type: document.getElementById('licenseType').value,
+            duration: document.getElementById('duration').value,
+            notes: document.getElementById('notes').value
+        };
+
+        fetch('/admin/create-license', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Lisans başarıyla oluşturuldu\nLisans Anahtarı: ' + data.license_key);
+                window.location.reload();
+            } else {
+                alert('Hata: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Bir hata oluştu: ' + error);
+        });
+    }
+
+    function checkPasswordStrength(password) {
+        const requirements = {
+            length: password.length >= 8,
+            upper: /[A-Z]/.test(password),
+            lower: /[a-z]/.test(password),
+            special: /[!@#$%^&*(),.?":{}|<>+-]/.test(password)
+        };
+
+        // UI güncelle
+        document.getElementById('lengthCheck').className = requirements.length ? 'text-success' : 'text-danger';
+        document.getElementById('lengthCheck').innerHTML = requirements.length ? '✓ En az 8 karakter' : '✗ En az 8 karakter';
+        
+        document.getElementById('upperCheck').className = requirements.upper ? 'text-success' : 'text-danger';
+        document.getElementById('upperCheck').innerHTML = requirements.upper ? '✓ En az bir büyük harf' : '✗ En az bir büyük harf';
+        
+        document.getElementById('lowerCheck').className = requirements.lower ? 'text-success' : 'text-danger';
+        document.getElementById('lowerCheck').innerHTML = requirements.lower ? '✓ En az bir küçük harf' : '✗ En az bir küçük harf';
+        
+        document.getElementById('specialCheck').className = requirements.special ? 'text-success' : 'text-danger';
+        document.getElementById('specialCheck').innerHTML = requirements.special ? '✓ En az bir özel karakter' : '✗ En az bir özel karakter';
+
+        return Object.values(requirements).every(Boolean);
+    }
+
     function changePassword() {
         const currentPassword = document.getElementById('currentPassword').value;
         const newPassword = document.getElementById('newPassword').value;
         
         if (!currentPassword || !newPassword) {
             alert('Lütfen tüm alanları doldurun');
+            return;
+        }
+
+        // Şifre gücünü kontrol et
+        if (!checkPasswordStrength(newPassword)) {
+            alert('Lütfen şifre gereksinimlerini karşılayın');
             return;
         }
         
