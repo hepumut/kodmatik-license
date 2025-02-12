@@ -1,11 +1,11 @@
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import secrets
 import hashlib
-
-from server.app import generate_license_key
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Yolları düzelt
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -221,6 +221,9 @@ def create_license():
             'success': False, 
             'error': str(e)
         }), 500
+
+def generate_license_key():
+    return secrets.token_hex(16)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
