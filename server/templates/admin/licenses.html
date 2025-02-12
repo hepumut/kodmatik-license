@@ -545,15 +545,16 @@
         <input type="text" id="searchInput" class="search-box" placeholder="Lisans ara..." onkeyup="searchTable()">
 
         <div class="licenses-table">
-            <table id="licensesTable">
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Lisans Anahtarı</th>
+                        <th>Müşteri</th>
+                        <th>E-posta</th>
                         <th>Tip</th>
-                        <th>Donanım ID</th>
-                        <th>Oluşturma Tarihi</th>
-                        <th>Son Kullanma</th>
                         <th>Durum</th>
+                        <th>Bitiş Tarihi</th>
+                        <th>Aktivasyon</th>
                         <th>İşlemler</th>
                     </tr>
                 </thead>
@@ -561,25 +562,28 @@
                     {% for license in licenses %}
                     <tr>
                         <td>{{ license.license_key }}</td>
+                        <td>{{ license.customer_name }}</td>
+                        <td>{{ license.customer_email }}</td>
+                        <td>{{ license.license_type }}</td>
                         <td>
-                            <span class="license-type {{ license.license_type }}">
-                                {{ license.license_type|upper }}
-                            </span>
-                        </td>
-                        <td>{{ license.hardware_id or 'Aktive edilmemiş' }}</td>
-                        <td>{{ license.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                        <td>{{ license.expiry_date.strftime('%Y-%m-%d') }}</td>
-                        <td>
-                            <span class="status {{ 'active' if license.is_active else 'expired' }}">
-                                {{ 'Aktif' if license.is_active else 'Deaktif' }}
-                            </span>
-                        </td>
-                        <td class="actions">
                             {% if license.is_active %}
-                            <button onclick="deactivateLicense('{{ license.license_key }}')" class="action-btn deactivate">Deaktive Et</button>
+                                <span class="badge bg-success">Aktif</span>
+                            {% else %}
+                                <span class="badge bg-danger">Pasif</span>
                             {% endif %}
-                            <button onclick="showDetails('{{ license.license_key }}')" class="action-btn view">Detaylar</button>
-                            <button onclick="deleteLicense('{{ license.license_key }}')" class="action-btn delete">Sil</button>
+                        </td>
+                        <td>{{ license.expiry_date.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            {% if license.activation_count > 0 %}
+                                <span class="badge bg-primary">{{ license.activation_count }} kez</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Aktivasyon yok</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="showLicenseDetails('{{ license.id }}')">
+                                <i class="fas fa-info-circle"></i> Detay
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -650,38 +654,53 @@
         </div>
     </div>
 
-    <!-- Şifre değiştirme modalını ekle -->
-    <div id="changePasswordModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeChangePasswordModal()">&times;</span>
-            <h2>Şifre Değiştir</h2>
-            <form onsubmit="submitChangePassword(event)">
-                <div class="form-group">
-                    <label for="currentPassword">Mevcut Şifre</label>
-                    <input type="password" id="currentPassword" required>
+    <!-- Şifre Değiştirme Modal -->
+    <div class="modal fade" id="changePasswordModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Şifre Değiştir</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="form-group">
-                    <label for="newPassword">Yeni Şifre</label>
-                    <input type="password" id="newPassword" required minlength="8" oninput="checkPasswordStrength(this.value)">
-                    <small class="help-text">
-                        Şifre en az 8 karakter olmalı ve şunları içermelidir:
-                        <ul id="passwordCriteria">
-                            <li id="upperCase">En az bir büyük harf (A-Z)</li>
-                            <li id="lowerCase">En az bir küçük harf (a-z)</li>
-                            <li id="number">En az bir rakam (0-9)</li>
-                            <li id="special">En az bir özel karakter (!@#$%^&*(),.?":{}|<>+-)</li>
-                        </ul>
-                    </small>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Mevcut Şifre</label>
+                        <input type="password" class="form-control" id="currentPassword">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Yeni Şifre</label>
+                        <input type="password" class="form-control" id="newPassword">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="confirmPassword">Yeni Şifre (Tekrar)</label>
-                    <input type="password" id="confirmPassword" required minlength="8">
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-primary" onclick="changePassword()">Değiştir</button>
                 </div>
-                <div class="button-group">
-                    <button type="submit" class="save-btn">Şifreyi Güncelle</button>
-                    <button type="button" onclick="closeChangePasswordModal()" class="cancel-btn">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lisans Detay Modal -->
+    <div class="modal fade" id="licenseDetailModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Lisans Detayları</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-            </form>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Donanım ID:</strong></label>
+                        <div class="form-control" style="word-break: break-all;">
+                            <span id="hardwareId"></span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Notlar:</strong></label>
+                        <div id="licenseNotes" class="form-control" style="min-height: 100px;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -903,7 +922,6 @@
         document.getElementById('changePasswordModal').style.display = 'none';
         document.getElementById('currentPassword').value = '';
         document.getElementById('newPassword').value = '';
-        document.getElementById('confirmPassword').value = '';
     }
 
     function checkPasswordStrength(password) {
@@ -1008,6 +1026,49 @@
                 dropdown.classList.remove('show');
             }
         }
+    }
+
+    function showLicenseDetails(licenseId) {
+        fetch(`/api/license/${licenseId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('hardwareId').textContent = data.hardware_id || 'Henüz aktive edilmemiş';
+                document.getElementById('licenseNotes').textContent = data.notes || 'Not bulunmuyor';
+                new bootstrap.Modal(document.getElementById('licenseDetailModal')).show();
+            });
+    }
+
+    function changePassword() {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        
+        if (!currentPassword || !newPassword) {
+            alert('Lütfen tüm alanları doldurun');
+            return;
+        }
+        
+        fetch('/admin/change-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                current_password: currentPassword,
+                new_password: newPassword
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Şifre başarıyla değiştirildi');
+                bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+            } else {
+                alert(data.error || 'Bir hata oluştu');
+            }
+        })
+        .catch(error => {
+            alert('Bir hata oluştu: ' + error);
+        });
     }
     </script>
 </body>

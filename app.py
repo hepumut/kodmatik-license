@@ -235,6 +235,19 @@ def activate_license():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/license/<int:license_id>')
+@login_required
+def get_license_details(license_id):
+    """Lisans detaylarını getir"""
+    try:
+        license = License.query.get_or_404(license_id)
+        return jsonify({
+            'hardware_id': license.hardware_id,
+            'notes': license.notes
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Yardımcı fonksiyonlar
 def generate_unique_key():
     """Benzersiz lisans anahtarı oluştur"""
@@ -375,6 +388,43 @@ def generate_license_key():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+@app.route('/admin/change-password', methods=['POST'])
+@login_required
+def change_password():
+    try:
+        data = request.get_json()
+        
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return jsonify({
+                'success': False,
+                'error': 'Tüm alanları doldurun'
+            }), 400
+            
+        # Mevcut şifreyi kontrol et
+        if not current_user.check_password(current_password):
+            return jsonify({
+                'success': False,
+                'error': 'Mevcut şifre yanlış'
+            }), 400
+            
+        # Yeni şifreyi ayarla
+        current_user.set_password(new_password)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Şifre başarıyla değiştirildi'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 # Bu kısmı __main__ bloğunun dışına çıkaralım
 with app.app_context():
