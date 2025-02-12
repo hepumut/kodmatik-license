@@ -1,0 +1,30 @@
+2025-02-11 14:13:19,369 - INFO - Uygulama baþlatýlýyor...
+2025-02-11 14:13:19,387 - DEBUG - FMTParser baþlatýldý
+2025-02-11 14:13:19,957 - INFO - Ana pencere oluþturuldu
+2025-02-11 14:13:32,392 - INFO - FMT dosyasý okunuyor: C:/Users/Vera/kodmatikv2/NARTEST 7108_SEKONIC.fmt
+2025-02-11 14:13:32,393 - ERROR - Dosya okuma hatasý: 'utf-8' codec can't decode byte 0xd6 in position 205: invalid continuation byte
+Traceback (most recent call last):
+  File "C:\Users\Vera\kodmatikv2\fmt_parser.py", line 48, in parse_file
+    content = file.readlines()
+  File "C:\Users\Vera\pinokio\bin\miniconda\lib\codecs.py", line 322, in decode
+    (result, consumed) = self._buffer_decode(data, self.errors, final)
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xd6 in position 205: invalid continuation byte
+2025-02-11 14:14:31,136 - INFO - Uygulama baþlatýlýyor...
+2025-02-11 14:14:31,158 - DEBUG - FMTParser baþlatýldý
+2025-02-11 14:14:31,803 - INFO - Ana pencere oluþturuldu
+2025-02-11 14:14:42,947 - INFO - FMT dosyasý okunuyor: C:/Users/Vera/kodmatikv2/NARTEST 7108_SEKONIC.fmt
+2025-02-11 14:14:42,947 - ERROR - Dosya okuma hatasý: 'utf-8' codec can't decode byte 0xd6 in position 205: invalid continuation byte
+Traceback (most recent call last):
+  File "C:\Users\Vera\kodmatikv2\fmt_parser.py", line 48, in parse_file
+    content = file.readlines()
+  File "c:\Users\Vera\pinokio\bin\miniconda\lib\codecs.py", line 322, in decode
+    (result, consumed) = self._buffer_decode(data, self.errors, final)
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xd6 in position 205: invalid continuation byte
+2025-02-11 14:14:50,709 - INFO - FMT dosyasý okunuyor: C:/Users/Vera/kodmatikv2/OPTÝK-129_SEKONIC.fmt
+2025-02-11 14:14:50,709 - ERROR - Dosya okuma hatasý: 'utf-8' codec can't decode byte 0xd6 in position 203: invalid continuation byte
+Traceback (most recent call last):
+  File "C:\Users\Vera\kodmatikv2\fmt_parser.py", line 48, in parse_file
+    content = file.readlines()
+  File "c:\Users\Vera\pinokio\bin\miniconda\lib\codecs.py", line 322, in decode
+    (result, consumed) = self._buffer_decode(data, self.errors, final)
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xd6 in position 203: invalid continuation byte

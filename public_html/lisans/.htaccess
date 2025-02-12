@@ -1,0 +1,8 @@
+<IfModule mod_passenger.c>
+    PassengerEnabled on
+    PassengerPython /home/[cpanel_kullanici_adi]/virtualenv/lisans/3.9/bin/python
+</IfModule>
+
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ index.php [QSA,L] 
