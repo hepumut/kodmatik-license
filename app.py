@@ -215,16 +215,38 @@ def login():
 def admin_licenses():
     try:
         licenses = License.query.order_by(License.created_at.desc()).all()
+        
+        # Lisansları template'in beklediği formata dönüştür
+        formatted_licenses = []
+        for license in licenses:
+            formatted_licenses.append({
+                'id': license.id,
+                'license_key': license.license_key,
+                'customer_name': license.customer_name or 'Belirtilmemiş',
+                'customer_email': license.customer_email or 'Belirtilmemiş',
+                'license_type': license.license_type or 'standard',
+                'created_at': license.created_at,
+                'expiry_date': license.expiry_date,
+                'is_active': license.is_active,
+                'hardware_id': license.hardware_id,
+                'activation_count': license.activation_count,
+                'notes': license.notes or ''
+            })
+        
+        # İstatistikleri hesapla
         stats = {
             'total': len(licenses),
             'active': sum(1 for l in licenses if l.is_active),
             'expired': sum(1 for l in licenses if not l.is_active),
             'never_activated': sum(1 for l in licenses if not l.hardware_id)
         }
+        
         return render_template('admin/licenses.html', 
-                             licenses=licenses, 
+                             licenses=formatted_licenses, 
                              stats=stats,
+                             current_user=current_user,
                              now=datetime.utcnow())
+                             
     except Exception as e:
         print(f"Template render hatası: {str(e)}")
         return f"Hata: {str(e)}", 500
@@ -282,6 +304,12 @@ def create_license():
 
 def generate_license_key():
     return secrets.token_hex(16)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
