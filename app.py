@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 ADMIN_DIR = os.path.join(TEMPLATE_DIR, 'admin')
-DB_PATH = os.path.join(BASE_DIR, 'instance', 'licenses.db')
+DB_PATH = os.path.join(BASE_DIR, 'database.db')
 
 app = Flask(__name__)
 app.template_folder = TEMPLATE_DIR
@@ -311,21 +311,19 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+# Bu kısmı __main__ bloğunun dışına çıkaralım
+with app.app_context():
+    # Veritabanını oluştur
+    db.create_all()
+    
+    # İlk admin kullanıcısını oluştur
+    if not User.query.filter_by(username='admin').first():
+        admin = User(username='admin', is_admin=True)
+        admin.set_password('bilist2024')
+        db.session.add(admin)
+        db.session.commit()
+        print("Admin kullanıcısı oluşturuldu!")
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
-    with app.app_context():
-        # Veritabanını sil ve yeniden oluştur
-        if os.path.exists(DB_PATH):
-            os.remove(DB_PATH)
-        
-        db.create_all()
-        
-        # İlk admin kullanıcısını oluştur
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', is_admin=True)
-            admin.set_password('bilist2024')
-            db.session.add(admin)
-            db.session.commit()
-            print("Admin kullanıcısı oluşturuldu!")
-    
     app.run(host='0.0.0.0', port=port) 
