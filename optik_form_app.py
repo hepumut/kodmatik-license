@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 from fmt_parser import FMTParser, FormField
 import json
-from license_checker import LicenseChecker
+from license_manager import LicenseManager
 
 class OptikFormApp(QMainWindow):
     def __init__(self):
@@ -21,7 +21,7 @@ class OptikFormApp(QMainWindow):
         self.fmt_parser = None
         self.student_data = []
         self.field_mapping = {}
-        self.license_manager = LicenseChecker()
+        self.license_manager = LicenseManager()
         
         # FMT Parser'ı başlat
         self.fmt_parser = FMTParser()
@@ -84,14 +84,6 @@ class OptikFormApp(QMainWindow):
         about_action = QAction('Hakkında', self)
         about_action.triggered.connect(self.show_about_dialog)
         help_menu.addAction(about_action)
-        
-        # Lisans bilgisi için label oluştur
-        self.license_label = QLabel()
-        self.license_label.setMinimumWidth(150)
-        self.statusBar().addPermanentWidget(self.license_label)
-        
-        # Lisans durumunu güncelle
-        self.update_license_status()
         
         # Araç çubuğu
         toolbar = QToolBar()
@@ -162,6 +154,7 @@ class OptikFormApp(QMainWindow):
             }
         """)
         
+        # Sadece bir kere lisans label'ı oluştur
         self.license_label = QLabel()
         self.license_label.setMinimumWidth(150)
         self.statusBar().addPermanentWidget(self.license_label)
@@ -862,7 +855,7 @@ class OptikFormApp(QMainWindow):
                     data = json.load(f)
                     license_key = data.get('license_key')
                     
-                checker = LicenseChecker()
+                checker = LicenseManager()
                 success, data = checker.check_license(license_key)
                 
                 if success:
