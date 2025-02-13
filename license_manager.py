@@ -28,11 +28,12 @@ class LicenseManager:
                 # Lisansı kontrol et
                 success, response = self.checker.check_license(license_key)
                 if not success:
+                    # Lisans geçersiz olsa bile dosyayı silme
                     return False, "Lisans doğrulanamadı"
                 
                 remaining_days = response.get('remaining_days', 0)
                 if remaining_days <= 0:
-                    # Lisans süresini kontrol et ama dosyayı silme
+                    # Lisans süresi dolsa bile dosyayı silme
                     return False, "Lisans süresi dolmuş"
                 
                 return True, f"Lisans geçerli. Kalan gün: {remaining_days}"
@@ -95,18 +96,16 @@ class LicenseManager:
             
             success, response = self.checker.check_license(license_key)
             if not success:
+                # Lisans geçersiz olsa bile dosyayı silme
                 return False, "Lisans doğrulanamadı"
             
             remaining_days = response.get('remaining_days', 0)
             if remaining_days <= 0:
-                try:
-                    os.remove(self.license_file)
-                except:
-                    pass
+                # Lisans süresi dolsa bile dosyayı silme
                 return False, "Lisans süresi dolmuş"
             
             return True, f"Lisans geçerli. Kalan gün: {remaining_days}"
             
         except Exception as e:
-            print(f"Lisans kontrolü hatası: {e}")  # Hata logla
+            print(f"Lisans kontrolü hatası: {e}")
             return False, f"Lisans kontrolü başarısız: {str(e)}" 
