@@ -5,6 +5,7 @@ from cryptography.fernet import Fernet
 import os
 import requests
 import base64
+from license_checker import LicenseChecker
 
 class LicenseManager:
     def __init__(self):
@@ -19,23 +20,45 @@ class LicenseManager:
         try:
             # Lisans dosyasını kontrol et
             if not os.path.exists(self.license_file):
+                print("Lisans dosyası bulunamadı")
                 return False
                 
             # Mevcut lisansı oku
-            with open(self.license_file, 'r') as f:
-                data = json.load(f)
-                license_key = data.get('license_key')
+            try:
+                with open(self.license_file, 'r') as f:
+                    data = json.load(f)
+                    license_key = data.get('license_key')
+                    if not license_key:
+                        print("Lisans anahtarı bulunamadı")
+                        return False
+            except Exception as e:
+                print(f"Lisans dosyası okuma hatası: {e}")
+                return False
                 
             # Lisansı kontrol et
             success, response = self.checker.check_license(license_key)
-            if success:
-                remaining_days = response.get('remaining_days', 0)
-                if remaining_days > 0:
-                    return True
-                    
-            # Lisans geçersizse dosyayı sil
-            os.remove(self.license_file)
-            return False
+            if not success:
+                print("Lisans doğrulama başarısız")
+                return False
+                
+            remaining_days = response.get('remaining_days', 0)
+            if remaining_days <= 0:
+                print("Lisans süresi dolmuş")
+                # Lisans geçersizse dosyayı sil
+                try:
+                    os.remove(self.license_file)
+                except:
+                    pass
+                return False
+                
+            # Donanım ID kontrolü
+            hardware_id = response.get('hardware_id')
+            if hardware_id and hardware_id != self.get_hardware_id():
+                print("Donanım ID eşleşmiyor")
+                return False
+                
+            print(f"Lisans geçerli, kalan gün: {remaining_days}")
+            return True
                 
         except Exception as e:
             print(f"Lisans kontrolü hatası: {e}")
@@ -82,40 +105,34 @@ class LicenseManager:
         return hashlib.sha256(system_info.encode()).hexdigest()
     
     def verify_license(self):
-        """Lisansı kontrol et"""
+        """Lisansı kontrol et ve durum mesajı döndür"""
         try:
             if not os.path.exists(self.license_file):
                 return False, "Lisans bulunamadı"
             
-            with open(self.license_file, 'rb') as f:
-                encrypted_data = f.read()
+            with open(self.license_file, 'r') as f:
+                data = json.load(f)
+                license_key = data.get('license_key')
+                if not license_key:
+                    return False, "Geçersiz lisans dosyası"
             
-            decrypted_data = self.cipher_suite.decrypt(encrypted_data)
-            license_data = json.loads(decrypted_data)
+            success, response = self.checker.check_license(license_key)
+            if not success:
+                return False, "Lisans doğrulanamadı"
             
-            # Donanım ID kontrolü
-            if license_data['hardware_id'] != self.get_hardware_id():
-                return False, "Lisans başka bir cihaza ait"
-            
-            # Süre kontrolü
-            expiry_date = datetime.datetime.fromisoformat(license_data['expiry_date'])
-            if datetime.datetime.now() > expiry_date:
+            remaining_days = response.get('remaining_days', 0)
+            if remaining_days <= 0:
+                try:
+                    os.remove(self.license_file)
+                except:
+                    pass
                 return False, "Lisans süresi dolmuş"
             
-            # Online doğrulama
-            try:
-                response = requests.post('http://localhost:5000/api/verify-license', json={
-                    'license_key': license_data['key'],
-                    'hardware_id': license_data['hardware_id']
-                })
-                data = response.json()
-                if not data.get('valid'):
-                    return False, data.get('message', "Lisans doğrulanamadı")
-            except:
-                # Sunucuya erişilemezse offline modda devam et
-                pass
+            hardware_id = response.get('hardware_id')
+            if hardware_id and hardware_id != self.get_hardware_id():
+                return False, "Lisans başka bir cihaza ait"
             
-            return True, "Lisans geçerli"
+            return True, f"Lisans geçerli. Kalan gün: {remaining_days}"
             
         except Exception as e:
             return False, f"Lisans kontrolü başarısız: {str(e)}" 
