@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                           QLineEdit, QPushButton, QMessageBox, QFrame)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QFont, QPalette, QColor
+                           QLineEdit, QPushButton, QMessageBox, QFrame, QWidget, QScrollArea)
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QPixmap, QFont, QPalette, QColor, QPainter
 import webbrowser
 import json
 import os
@@ -23,16 +23,30 @@ class LicenseDialog(QDialog):
             return
             
         self.setWindowTitle("Bilist OtoForm - Lisans Yönetimi")
-        self.setFixedSize(600, 500)
+        self.setFixedSize(600, 600)
+        
+        # Ana layout
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(0)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # İçerik widget'ı (ScrollArea olmadan)
+        content_widget = QWidget()
+        self.content_layout = QVBoxLayout(content_widget)
+        self.content_layout.setSpacing(15)
+        self.content_layout.setContentsMargins(30, 30, 30, 30)
+        
+        # Arka plan ve stiller
         self.setStyleSheet("""
-            QDialog {
+            QDialog, QWidget {
                 background-color: #f5f5f5;
             }
             QLabel {
                 color: #333333;
+                background: transparent;
             }
             QLineEdit {
-                padding: 12px;
+                padding: 10px;
                 border: 2px solid #e0e0e0;
                 border-radius: 6px;
                 background: white;
@@ -41,8 +55,36 @@ class LicenseDialog(QDialog):
             QLineEdit:focus {
                 border-color: #2196F3;
             }
+            QPushButton#activateBtn {
+                background-color: #4CAF50;
+                color: white;
+                padding: 5px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton#activateBtn:hover {
+                background-color: #45a049;
+            }
+            QPushButton#buyBtn {
+                background-color: #2196F3;
+                color: white;
+                padding: 5px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton#buyBtn:hover {
+                background-color: #1E88E5;
+            }
         """)
-        self.setup_ui()
+        
+        self.setup_ui(content_widget)
+        
+        # Widget'ı doğrudan ana layout'a ekle
+        self.main_layout.addWidget(content_widget)
         
     def check_saved_license(self):
         """Kayıtlı lisansı kontrol et"""
@@ -91,35 +133,38 @@ class LicenseDialog(QDialog):
         except Exception as e:
             print(f"Lisans kaydetme hatası: {e}")
     
-    def setup_ui(self):
-        layout = QVBoxLayout()
-        layout.setSpacing(20)
-        layout.setContentsMargins(30, 30, 30, 30)
-        
+    def setup_ui(self, parent):
         # Logo ve başlık
         header_layout = QHBoxLayout()
+        header_layout.setSpacing(10)
+        
         logo_label = QLabel()
         logo_pixmap = QPixmap("icon.ico")
-        logo_label.setPixmap(logo_pixmap.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        logo_label.setPixmap(logo_pixmap.scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         header_layout.addWidget(logo_label)
         
         title_label = QLabel("Bilist OtoForm\nLisans Aktivasyonu")
-        title_font = QFont("Segoe UI", 24)
+        title_font = QFont("Segoe UI", 20)
         title_font.setBold(True)
         title_label.setFont(title_font)
         title_label.setStyleSheet("color: #1976D2;")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
-        layout.addLayout(header_layout)
+        
+        self.content_layout.addLayout(header_layout)
         
         # Ayırıcı çizgi
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setStyleSheet("background-color: #e0e0e0;")
-        layout.addWidget(line)
+        self.content_layout.addWidget(line)
         
         # Bilgi metni
-        info_text = """
+        info_label = QLabel()
+        info_label.setTextFormat(Qt.RichText)
+        info_label.setOpenExternalLinks(True)
+        info_label.setWordWrap(True)
+        info_label.setText("""
         <div style='font-family: "Segoe UI", sans-serif;'>
             <p style='font-size: 15px; color: #424242;'>
                 Bilist OtoForm'u kullanmak için geçerli bir lisans anahtarı gereklidir.
@@ -128,106 +173,54 @@ class LicenseDialog(QDialog):
             <p style='font-size: 16px; font-weight: bold; color: #1976D2; margin-top: 20px;'>Özellikler:</p>
             <ul style='color: #424242; font-size: 14px;'>
                 <li>Optik form tasarlama ve düzenleme</li>
-                <li>Otomatik form okuma ve değerlendirme</li>
-                <li>Excel ve PDF raporlama</li>
-                <li>Toplu form işleme</li>
-                <li>Sınırsız form okuma</li>
-                <li>1 yıl ücretsiz güncelleme</li>
-                <li>Teknik destek</li>
+                <li>Excel ile öğrenci verisi yükleme</li>
+                <li>PDF olarak kaydedebilme</li>
             </ul>
         </div>
-        """
-        info_label = QLabel(info_text)
-        info_label.setOpenExternalLinks(True)
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
+        """)
+        self.content_layout.addWidget(info_label)
         
-        # Eğer kalan gün sayısı varsa göster
-        if self.remaining_days is not None:
-            remaining_label = QLabel(f"""
-            <div style='text-align: center; background-color: #E8F5E9; padding: 10px; border-radius: 6px;'>
-                <p style='color: #2E7D32; font-size: 14px; margin: 0;'>
-                    <b>Lisans Durumu:</b> Aktif<br>
-                    Kalan Süre: {self.remaining_days} gün
-                </p>
-            </div>
-            """)
-            layout.addWidget(remaining_label)
-
-        # Lisans giriş alanı - sadece lisans yoksa göster
-        if self.remaining_days is None:
-            input_layout = QHBoxLayout()
-            self.license_input = QLineEdit()
-            self.license_input.setPlaceholderText("Lisans anahtarınızı girin")
-            self.license_input.setMinimumHeight(45)
-            input_layout.addWidget(self.license_input)
-            
-            activate_btn = QPushButton("Aktive Et")
-            activate_btn.setMinimumHeight(45)
-            activate_btn.setCursor(Qt.PointingHandCursor)
-            activate_btn.clicked.connect(self.activate_license)
-            activate_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    padding: 5px 30px;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #43A047;
-                }
-                QPushButton:pressed {
-                    background-color: #388E3C;
-                }
-            """)
-            input_layout.addWidget(activate_btn)
-            layout.addLayout(input_layout)
+        # Lisans giriş alanı
+        input_layout = QHBoxLayout()
         
-        # Satın alma butonu - sadece lisans yoksa veya süresi azsa göster
-        if self.remaining_days is None or self.remaining_days < 30:
-            buy_btn = QPushButton("Lisans Satın Al")
-            buy_btn.setMinimumHeight(45)
-            buy_btn.setCursor(Qt.PointingHandCursor)
-            buy_btn.clicked.connect(lambda: webbrowser.open('http://www.bilistco.com/otoform'))
-            buy_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #2196F3;
-                    color: white;
-                    padding: 5px 30px;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #1E88E5;
-                }
-                QPushButton:pressed {
-                    background-color: #1976D2;
-                }
-            """)
-            layout.addWidget(buy_btn)
+        self.license_input = QLineEdit()
+        self.license_input.setPlaceholderText("Lisans anahtarınızı girin")
+        self.license_input.setMinimumHeight(45)
+        input_layout.addWidget(self.license_input)
+        
+        activate_btn = QPushButton("Aktive Et")
+        activate_btn.setObjectName("activateBtn")
+        activate_btn.setMinimumHeight(45)
+        activate_btn.setCursor(Qt.PointingHandCursor)
+        activate_btn.clicked.connect(self.activate_license)
+        input_layout.addWidget(activate_btn)
+        
+        self.content_layout.addLayout(input_layout)
+        
+        # Satın alma butonu
+        buy_btn = QPushButton("Lisans Satın Al")
+        buy_btn.setObjectName("buyBtn")
+        buy_btn.setMinimumHeight(45)
+        buy_btn.setCursor(Qt.PointingHandCursor)
+        buy_btn.clicked.connect(lambda: webbrowser.open('http://www.bilistco.com/otoform'))
+        self.content_layout.addWidget(buy_btn)
         
         # İletişim bilgileri
-        contact_label = QLabel("""
+        contact_label = QLabel()
+        contact_label.setAlignment(Qt.AlignCenter)
+        contact_label.setText("""
         <div style='text-align: center; font-family: "Segoe UI", sans-serif;'>
-            <p style='color: #666; font-size: 13px; margin: 20px 0;'>
+            <p style='color: #666; font-size: 12px; margin: 10px 0;'>
                 <b>Destek ve İletişim</b><br>
                 E-posta: info@bilistco.com<br>
                 Tel: +90 505 498 51 94<br>
-                <span style='font-size: 12px; color: #888;'>
+                <span style='font-size: 11px; color: #888;'>
                     Çalışma Saatleri: Hafta içi 09:00 - 18:00
                 </span>
             </p>
         </div>
         """)
-        contact_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(contact_label)
-        
-        self.setLayout(layout)
+        self.content_layout.addWidget(contact_label)
         
     def activate_license(self):
         """Lisans aktivasyonu"""
