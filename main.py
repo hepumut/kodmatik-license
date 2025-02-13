@@ -1,11 +1,13 @@
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMessageBox, QDialog
 from PyQt5.QtGui import QIcon
 from optik_form_app import OptikFormApp
 from license_dialog import LicenseDialog
 from license_manager import LicenseManager
 import logging
+from license_checker import LicenseChecker
+import json
 
 # Log dosyası için kullanıcının belgeler klasörünü kullan
 documents_path = os.path.expanduser('~/Documents/Bilist co. OtoForm')
@@ -26,28 +28,59 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def check_license():
-    """Lisans kontrolü yap"""
-    try:
-        license_manager = LicenseManager()
-        is_valid, message = license_manager.verify_license()
+class LicenseManager:
+    def __init__(self):
+        self.license_file = 'license.json'
+        self.checker = LicenseChecker()
         
-        if not is_valid:
-            # Lisans penceresi göster
-            dialog = LicenseDialog()
-            if dialog.exec_() == QMessageBox.Accepted:
-                # Lisans girildi, tekrar kontrol et
-                return check_license()
-            return False
+    def check_license(self):
+        """Lisans kontrolü yap"""
+        try:
+            # Lisans dosyasını kontrol et
+            if not os.path.exists(self.license_file):
+                return self.show_license_dialog()
+                
+            # Mevcut lisansı oku
+            with open(self.license_file, 'r') as f:
+                data = json.load(f)
+                license_key = data.get('license_key')
+                
+            # Lisansı kontrol et
+            success, data = self.checker.check_license(license_key)
+            if success:
+                remaining_days = data.get('remaining_days', 0)
+                logger.info(f"Lisans geçerli. Kalan gün: {remaining_days}")
+                
+                # Eğer 30 günden az kaldıysa uyarı göster ama uygulamayı başlat
+                if remaining_days < 30:
+                    self.show_license_dialog(remaining_days)
+                    return True  # Lisans geçerli olduğu için True dön
+                
+                return True
+            else:
+                logger.warning(f"Lisans hatası: {data}")
+                return self.show_license_dialog()
+                
+        except Exception as e:
+            logger.error(f"Lisans kontrolü hatası: {e}")
+            return self.show_license_dialog()
+    
+    def show_license_dialog(self, remaining_days=None):
+        """Lisans aktivasyon penceresini göster"""
+        dialog = LicenseDialog(self, remaining_days)
+        result = dialog.exec_()
         
-        return True
-        
-    except Exception as e:
-        logger.error(f"Lisans kontrolü hatası: {str(e)}")
-        QMessageBox.critical(None, "Hata", 
-            "Lisans kontrolü sırasında bir hata oluştu.\n"
-            f"Hata: {str(e)}")
+        if result == QDialog.Accepted:
+            # Eğer yeni lisans aktive edildiyse True dön
+            return True
+            
+        # İptal edilirse False dön
         return False
+        
+    def save_license(self, license_key):
+        """Lisans bilgisini kaydet"""
+        with open(self.license_file, 'w') as f:
+            json.dump({'license_key': license_key}, f)
 
 def main():
     try:
@@ -61,10 +94,17 @@ def main():
             app.setWindowIcon(QIcon(icon_path))
         
         # Lisans kontrolünü en başta yap
-        if not check_license():
-            logger.warning("Lisans doğrulanamadı, uygulama kapatılıyor.")
-            sys.exit(1)
-            
+        license_manager = LicenseManager()
+        
+        # Önce kayıtlı lisansı kontrol et
+        if not license_manager.check_license():
+            # Lisans yoksa veya geçersizse lisans dialogunu göster
+            dialog = LicenseDialog(license_manager)
+            if not dialog.exec_():
+                logger.warning("Lisans doğrulanamadı, uygulama kapatılıyor.")
+                sys.exit(1)
+        
+        # Lisans geçerliyse devam et
         logger.info("Lisans doğrulandı, uygulama başlatılıyor...")
         
         # Ana pencereyi oluştur

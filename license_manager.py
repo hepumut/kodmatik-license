@@ -8,44 +8,78 @@ import base64
 
 class LicenseManager:
     def __init__(self):
-        # Güvenli bir şifreleme anahtarı oluştur
-        self.key = base64.urlsafe_b64encode(b'bilistotoform2024secretkeylicense12345'[:32].ljust(32, b'0'))
-        self.cipher_suite = Fernet(self.key)
         self.license_file = os.path.join(
             os.path.expanduser('~/Documents/Bilist co. OtoForm'),
             '.license'
         )
+        self.checker = LicenseChecker()
     
-    def get_hardware_id(self):
-        """Benzersiz donanım ID'si oluştur"""
-        system_info = f"{os.getenv('COMPUTERNAME')}_{os.getenv('PROCESSOR_IDENTIFIER')}"
-        return hashlib.sha256(system_info.encode()).hexdigest()
+    def check_license(self):
+        """Lisans kontrolü yap"""
+        try:
+            # Lisans dosyasını kontrol et
+            if not os.path.exists(self.license_file):
+                return False
+                
+            # Mevcut lisansı oku
+            with open(self.license_file, 'r') as f:
+                data = json.load(f)
+                license_key = data.get('license_key')
+                
+            # Lisansı kontrol et
+            success, response = self.checker.check_license(license_key)
+            if success:
+                remaining_days = response.get('remaining_days', 0)
+                if remaining_days > 0:
+                    return True
+                    
+            # Lisans geçersizse dosyayı sil
+            os.remove(self.license_file)
+            return False
+                
+        except Exception as e:
+            print(f"Lisans kontrolü hatası: {e}")
+            return False
     
     def save_license(self, license_key):
         """Lisans anahtarını kaydet"""
         try:
-            # Lisans verilerini hazırla
-            license_data = {
-                'key': license_key,
-                'hardware_id': self.get_hardware_id(),
-                'expiry_date': (datetime.datetime.now() + datetime.timedelta(days=365)).isoformat(),
-                'created_at': datetime.datetime.now().isoformat()
-            }
-            
-            # Verileri şifrele
-            encrypted_data = self.cipher_suite.encrypt(
-                json.dumps(license_data).encode()
-            )
-            
-            # Klasörü oluştur (yoksa)
+            # Klasörü oluştur
             os.makedirs(os.path.dirname(self.license_file), exist_ok=True)
             
-            # Lisans dosyasını kaydet
-            with open(self.license_file, 'wb') as f:
-                f.write(encrypted_data)
+            # Lisans bilgilerini kaydet
+            with open(self.license_file, 'w') as f:
+                json.dump({
+                    'license_key': license_key,
+                    'created_at': datetime.datetime.now().isoformat()
+                }, f)
                 
+            return True
         except Exception as e:
-            raise Exception(f"Lisans kaydedilemedi: {str(e)}")
+            print(f"Lisans kaydetme hatası: {e}")
+            return False
+
+    def get_license_info(self):
+        """Mevcut lisans bilgilerini getir"""
+        try:
+            if os.path.exists(self.license_file):
+                with open(self.license_file, 'r') as f:
+                    data = json.load(f)
+                    license_key = data.get('license_key')
+                    
+                    success, response = self.checker.check_license(license_key)
+                    if success:
+                        return response
+                        
+            return None
+        except Exception as e:
+            print(f"Lisans bilgisi alma hatası: {e}")
+            return None
+
+    def get_hardware_id(self):
+        """Benzersiz donanım ID'si oluştur"""
+        system_info = f"{os.getenv('COMPUTERNAME')}_{os.getenv('PROCESSOR_IDENTIFIER')}"
+        return hashlib.sha256(system_info.encode()).hexdigest()
     
     def verify_license(self):
         """Lisansı kontrol et"""
