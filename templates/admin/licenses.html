@@ -288,6 +288,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+    let currentLicenseKey = null;
+
     function showLicenseDetails(licenseId) {
         fetch(`/api/license-details/${licenseId}`)
             .then(response => response.json())
@@ -467,6 +469,74 @@
 
     // Input olayını dinle
     document.getElementById('searchInput').addEventListener('keyup', searchTable);
+
+    function showUpdateModal() {
+        // Güncelleme modalını göster
+        bootstrap.Modal.getInstance(document.getElementById('licenseDetailModal')).hide();
+        new bootstrap.Modal(document.getElementById('updateLicenseModal')).show();
+    }
+
+    function updateLicense() {
+        const days = document.getElementById('extensionDays').value;
+        
+        if (!days || days < 1) {
+            alert('Lütfen geçerli bir süre girin');
+            return;
+        }
+        
+        fetch('/api/update-license', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                license_key: currentLicenseKey,
+                duration: parseInt(days)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Lisans başarıyla güncellendi');
+                window.location.reload();
+            } else {
+                alert('Hata: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Hata:', error);
+            alert('Güncelleme sırasında bir hata oluştu');
+        });
+    }
+
+    function deleteLicense() {
+        if (!confirm('Bu lisansı silmek istediğinizden emin misiniz?')) {
+            return;
+        }
+        
+        fetch('/api/delete-license', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                license_key: currentLicenseKey
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Lisans başarıyla silindi');
+                window.location.reload();
+            } else {
+                alert('Hata: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Hata:', error);
+            alert('Silme işlemi sırasında bir hata oluştu');
+        });
+    }
     </script>
 
     <style>

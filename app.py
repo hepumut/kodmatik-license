@@ -273,6 +273,78 @@ def get_license_details(license_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/update-license', methods=['POST'])
+@login_required
+def update_license():
+    """Lisans süresini güncelle"""
+    try:
+        data = request.get_json()
+        license_key = data.get('license_key')
+        duration = int(data.get('duration', 365))
+        
+        license = License.query.filter_by(license_key=license_key).first()
+        if not license:
+            return jsonify({
+                'success': False,
+                'error': 'Lisans bulunamadı'
+            }), 404
+            
+        # Mevcut süreden kalan günleri hesapla
+        remaining_days = (license.expiry_date - datetime.utcnow()).days
+        if remaining_days < 0:
+            remaining_days = 0
+            
+        # Yeni süreyi ekle
+        license.expiry_date = datetime.utcnow() + timedelta(days=duration + remaining_days)
+        license.is_active = True  # Lisansı aktif et
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Lisans süresi güncellendi',
+            'new_expiry_date': license.expiry_date.strftime('%d.%m.%Y')
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/delete-license', methods=['POST'])
+@login_required
+def delete_license():
+    """Lisansı sil"""
+    try:
+        data = request.get_json()
+        license_key = data.get('license_key')
+        
+        license = License.query.filter_by(license_key=license_key).first()
+        if not license:
+            return jsonify({
+                'success': False,
+                'error': 'Lisans bulunamadı'
+            }), 404
+            
+        # Önce aktivasyon kayıtlarını sil
+        LicenseActivation.query.filter_by(license_id=license.id).delete()
+        
+        # Sonra lisansı sil
+        db.session.delete(license)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Lisans başarıyla silindi'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 # Yardımcı fonksiyonlar
 def generate_unique_key():
     """Benzersiz lisans anahtarı oluştur"""
