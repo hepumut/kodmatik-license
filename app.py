@@ -240,8 +240,8 @@ def activate_license():
 
 @app.route('/api/license/<int:license_id>')
 @login_required
-def get_license_details(license_id):
-    """Lisans detaylarını getir"""
+def get_license_basic_details(license_id):
+    """Temel lisans detaylarını getir"""
     try:
         license = License.query.get_or_404(license_id)
         return jsonify({
@@ -254,7 +254,7 @@ def get_license_details(license_id):
 @app.route('/api/license-details/<int:license_id>')
 @login_required
 def get_license_details(license_id):
-    """Lisans detaylarını getir"""
+    """Detaylı lisans bilgilerini getir"""
     try:
         license = License.query.get_or_404(license_id)
         
