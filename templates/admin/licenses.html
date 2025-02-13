@@ -289,20 +289,51 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     function showLicenseDetails(licenseId) {
-        fetch(`/api/license/${licenseId}`)
+        fetch(`/api/license-details/${licenseId}`)
             .then(response => response.json())
             .then(data => {
-                document.getElementById('detailLicenseKey').textContent = data.license_key || 'Henüz aktive edilmemiş';
-                document.getElementById('detailStatus').textContent = data.is_active ? 'Aktif' : 'Pasif';
+                document.getElementById('detailLicenseKey').textContent = data.license_key;
+                document.getElementById('detailStatus').innerHTML = data.is_active ? 
+                    '<span class="badge bg-success">Aktif</span>' : 
+                    '<span class="badge bg-danger">Pasif</span>';
                 document.getElementById('detailType').textContent = data.type || 'Belirtilmemiş';
-                document.getElementById('detailCreatedAt').textContent = data.created_at ? data.created_at.strftime('%d.%m.%Y') : 'Belirtilmemiş';
-                document.getElementById('detailExpiryDate').textContent = data.expiry_date ? data.expiry_date.strftime('%d.%m.%Y') : 'Belirtilmemiş';
+                document.getElementById('detailCreatedAt').textContent = data.created_at;
+                document.getElementById('detailExpiryDate').textContent = data.expiry_date;
                 document.getElementById('detailCustomerName').textContent = data.customer_name || 'Belirtilmemiş';
                 document.getElementById('detailEmail').textContent = data.customer_email || 'Belirtilmemiş';
-                document.getElementById('detailActivationCount').textContent = data.activation_count ? data.activation_count + ' kez' : 'Aktivasyon yok';
+                document.getElementById('detailActivationCount').textContent = data.activation_count ? 
+                    data.activation_count + ' kez' : 'Aktivasyon yok';
                 document.getElementById('detailHardwareId').textContent = data.hardware_id || 'Henüz aktive edilmemiş';
                 document.getElementById('detailNotes').textContent = data.notes || 'Not bulunmuyor';
+                
+                // Mevcut lisans anahtarını sakla
+                currentLicenseKey = data.license_key;
+                
                 new bootstrap.Modal(document.getElementById('licenseDetailModal')).show();
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+                alert('Lisans detayları alınırken bir hata oluştu');
+            });
+    }
+
+    // Lisans anahtarı kopyalama fonksiyonu
+    function copyToClipboard(element) {
+        const text = element.textContent.trim();
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // Kopyalama başarılı animasyonu
+                const originalBackground = element.style.backgroundColor;
+                element.style.backgroundColor = '#d4edda';
+                element.style.color = '#155724';
+                setTimeout(() => {
+                    element.style.backgroundColor = originalBackground;
+                    element.style.color = '';
+                }, 1000);
+            })
+            .catch(err => {
+                console.error('Kopyalama hatası:', err);
+                alert('Kopyalama işlemi başarısız oldu');
             });
     }
 

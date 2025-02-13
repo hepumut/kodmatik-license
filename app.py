@@ -8,6 +8,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 import sys
 
+from server.app import create_admin_user
+
 # Yolları düzelt
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
@@ -243,6 +245,28 @@ def get_license_details(license_id):
     try:
         license = License.query.get_or_404(license_id)
         return jsonify({
+            'hardware_id': license.hardware_id,
+            'notes': license.notes
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/license-details/<int:license_id>')
+@login_required
+def get_license_details(license_id):
+    """Lisans detaylarını getir"""
+    try:
+        license = License.query.get_or_404(license_id)
+        
+        return jsonify({
+            'license_key': license.license_key,
+            'is_active': license.is_active,
+            'type': license.license_type,
+            'created_at': license.created_at.strftime('%d.%m.%Y'),
+            'expiry_date': license.expiry_date.strftime('%d.%m.%Y'),
+            'customer_name': license.customer_name,
+            'customer_email': license.customer_email,
+            'activation_count': license.activation_count,
             'hardware_id': license.hardware_id,
             'notes': license.notes
         })
