@@ -16,53 +16,30 @@ class LicenseManager:
         self.checker = LicenseChecker()
     
     def check_license(self):
-        """Lisans kontrolü yap"""
+        """Lisansı kontrol et"""
         try:
-            # Lisans dosyasını kontrol et
             if not os.path.exists(self.license_file):
-                print("Lisans dosyası bulunamadı")
-                return False
+                return False, "Lisans bulunamadı"
+            
+            with open(self.license_file, 'r') as f:
+                data = json.load(f)
+                license_key = data.get('license_key')
                 
-            # Mevcut lisansı oku
-            try:
-                with open(self.license_file, 'r') as f:
-                    data = json.load(f)
-                    license_key = data.get('license_key')
-                    if not license_key:
-                        print("Lisans anahtarı bulunamadı")
-                        return False
-            except Exception as e:
-                print(f"Lisans dosyası okuma hatası: {e}")
-                return False
+                # Lisansı kontrol et
+                success, response = self.checker.check_license(license_key)
+                if not success:
+                    return False, "Lisans doğrulanamadı"
                 
-            # Lisansı kontrol et
-            success, response = self.checker.check_license(license_key)
-            if not success:
-                print("Lisans doğrulama başarısız")
-                return False
+                remaining_days = response.get('remaining_days', 0)
+                if remaining_days <= 0:
+                    # Lisans süresini kontrol et ama dosyayı silme
+                    return False, "Lisans süresi dolmuş"
                 
-            remaining_days = response.get('remaining_days', 0)
-            if remaining_days <= 0:
-                print("Lisans süresi dolmuş")
-                # Lisans geçersizse dosyayı sil
-                try:
-                    os.remove(self.license_file)
-                except:
-                    pass
-                return False
-                
-            # Donanım ID kontrolü
-            hardware_id = response.get('hardware_id')
-            if hardware_id and hardware_id != self.get_hardware_id():
-                print("Donanım ID eşleşmiyor")
-                return False
-                
-            print(f"Lisans geçerli, kalan gün: {remaining_days}")
-            return True
+                return True, f"Lisans geçerli. Kalan gün: {remaining_days}"
                 
         except Exception as e:
             print(f"Lisans kontrolü hatası: {e}")
-            return False
+            return False, f"Lisans kontrolü başarısız: {str(e)}"
     
     def save_license(self, license_key):
         """Lisans anahtarını kaydet"""

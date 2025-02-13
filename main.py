@@ -7,6 +7,7 @@ from license_dialog import LicenseDialog
 from license_manager import LicenseManager
 import logging
 import json
+from PyQt5.QtCore import QTimer
 
 # Log dosyası için kullanıcının belgeler klasörünü kullan
 documents_path = os.path.expanduser('~/Documents/Bilist co. OtoForm')
@@ -29,49 +30,42 @@ logger = logging.getLogger(__name__)
 
 def main():
     try:
-        # QApplication'ı en başta oluştur
+        # QApplication'ı oluştur
         app = QApplication(sys.argv)
         app.setApplicationName('Bilist co. OtoForm')
         
-        # İkon ayarla
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon.ico')
-        if os.path.exists(icon_path):
-            app.setWindowIcon(QIcon(icon_path))
+        # Temel stil tanımlamaları
+        app.setStyle('Fusion')
         
-        # Lisans kontrolünü en başta yap
+        # İkon ayarla (gecikmeli)
+        QTimer.singleShot(0, lambda: set_application_icon(app))
+        
+        # Lisans kontrolü
         license_manager = LicenseManager()
-        success, message = license_manager.verify_license()
-        
-        if not success:
-            logger.warning(f"Lisans kontrolü başarısız: {message}")
-            # Lisans dialogunu göster
+        if not license_manager.check_license():
             dialog = LicenseDialog(license_manager)
             if not dialog.exec_():
-                logger.warning("Lisans doğrulanamadı, uygulama kapatılıyor.")
                 sys.exit(1)
-            
-            # Dialog kapandıktan sonra tekrar kontrol et
-            success, message = license_manager.verify_license()
-            if not success:
-                logger.error(f"Lisans hala geçersiz: {message}")
-                QMessageBox.critical(None, "Lisans Hatası", message)
-                sys.exit(1)
-        
-        logger.info(f"Lisans durumu: {message}")
         
         # Ana pencereyi oluştur
         ex = OptikFormApp()
-        logger.info("Ana pencere oluşturuldu")
         ex.show()
         
-        # Uygulamayı başlat
         sys.exit(app.exec_())
         
     except Exception as e:
-        logger.error(f"Kritik hata: {str(e)}", exc_info=True)
         QMessageBox.critical(None, "Kritik Hata", 
             f"Uygulama başlatılırken bir hata oluştu:\n{str(e)}")
         sys.exit(1)
+
+def set_application_icon(app):
+    """İkonu gecikmeli yükle"""
+    try:
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon.ico')
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+    except Exception as e:
+        print(f"İkon yüklenirken hata: {e}")
 
 if __name__ == '__main__':
     main() 
