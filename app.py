@@ -6,6 +6,7 @@ import secrets
 import hashlib
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+import sys
 
 # Yolları düzelt
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -440,5 +441,18 @@ with app.app_context():
         print("Admin kullanıcısı oluşturuldu!")
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port) 
+    try:
+        with app.app_context():
+            # Veritabanı yoksa oluştur
+            if not os.path.exists(DB_PATH):
+                os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+                db.create_all()
+                create_admin_user()
+                print("Veritabanı oluşturuldu!")
+            
+        print("\nSunucu başlatılıyor...")
+        print("Admin paneli: http://localhost:5000/admin/licenses")
+        app.run(debug=False, port=5000)
+    except Exception as e:
+        print(f"Kritik hata: {str(e)}")
+        sys.exit(1) 
