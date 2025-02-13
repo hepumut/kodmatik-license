@@ -79,26 +79,25 @@
 
         <div class="card">
             <div class="card-body">
-                <table class="table table-striped">
+                <table class="table table-hover">
                     <thead>
                         <tr>
                             <th>Lisans Anahtarı</th>
                             <th>Müşteri</th>
-                            <th>E-posta</th>
-                            <th>Tip</th>
                             <th>Durum</th>
                             <th>Bitiş Tarihi</th>
-                            <th>Aktivasyon</th>
                             <th>İşlemler</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for license in licenses %}
                         <tr>
-                            <td>{{ license.license_key }}</td>
+                            <td>
+                                <span class="license-key" onclick="copyToClipboard(this)" title="Kopyalamak için tıklayın">
+                                    {{ license.license_key }}
+                                </span>
+                            </td>
                             <td>{{ license.customer_name }}</td>
-                            <td>{{ license.customer_email }}</td>
-                            <td>{{ license.license_type }}</td>
                             <td>
                                 {% if license.is_active %}
                                     <span class="badge bg-success">Aktif</span>
@@ -107,13 +106,6 @@
                                 {% endif %}
                             </td>
                             <td>{{ license.expiry_date.strftime('%d.%m.%Y') }}</td>
-                            <td>
-                                {% if license.activation_count > 0 %}
-                                    <span class="badge bg-primary">{{ license.activation_count }} kez</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Aktivasyon yok</span>
-                                {% endif %}
-                            </td>
                             <td>
                                 <button class="btn btn-sm btn-info" onclick="showLicenseDetails('{{ license.id }}')">
                                     <i class="fas fa-info-circle"></i> Detay
@@ -129,23 +121,70 @@
 
     <!-- Lisans Detay Modal -->
     <div class="modal fade" id="licenseDetailModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Lisans Detayları</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label"><strong>Donanım ID:</strong></label>
-                        <div class="form-control" style="word-break: break-all;">
-                            <span id="hardwareId"></span>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Lisans Bilgileri</h6>
+                            <div class="mb-2">
+                                <strong>Lisans Anahtarı:</strong>
+                                <span id="detailLicenseKey" class="license-key" onclick="copyToClipboard(this)"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Durum:</strong>
+                                <span id="detailStatus"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Lisans Tipi:</strong>
+                                <span id="detailType"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Oluşturulma Tarihi:</strong>
+                                <span id="detailCreatedAt"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Bitiş Tarihi:</strong>
+                                <span id="detailExpiryDate"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Müşteri Bilgileri</h6>
+                            <div class="mb-2">
+                                <strong>Müşteri Adı:</strong>
+                                <span id="detailCustomerName"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>E-posta:</strong>
+                                <span id="detailEmail"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Aktivasyon Sayısı:</strong>
+                                <span id="detailActivationCount"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Donanım ID:</strong>
+                                <span id="detailHardwareId"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label"><strong>Notlar:</strong></label>
-                        <div id="licenseNotes" class="form-control" style="min-height: 100px;"></div>
+                        <h6 class="text-muted mb-2">Notlar</h6>
+                        <div id="detailNotes" class="p-2 bg-light rounded"></div>
                     </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="deleteLicense()">
+                        <i class="fas fa-trash"></i> Sil
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="showUpdateModal()">
+                        <i class="fas fa-edit"></i> Güncelle
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
                 </div>
             </div>
         </div>
@@ -225,14 +264,44 @@
         </div>
     </div>
 
+    <!-- Güncelleme Modalı -->
+    <div class="modal fade" id="updateLicenseModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Lisans Güncelle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Süre Ekle (Gün)</label>
+                        <input type="number" class="form-control" id="extensionDays" value="365">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-primary" onclick="updateLicense()">Güncelle</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     function showLicenseDetails(licenseId) {
         fetch(`/api/license/${licenseId}`)
             .then(response => response.json())
             .then(data => {
-                document.getElementById('hardwareId').textContent = data.hardware_id || 'Henüz aktive edilmemiş';
-                document.getElementById('licenseNotes').textContent = data.notes || 'Not bulunmuyor';
+                document.getElementById('detailLicenseKey').textContent = data.license_key || 'Henüz aktive edilmemiş';
+                document.getElementById('detailStatus').textContent = data.is_active ? 'Aktif' : 'Pasif';
+                document.getElementById('detailType').textContent = data.type || 'Belirtilmemiş';
+                document.getElementById('detailCreatedAt').textContent = data.created_at ? data.created_at.strftime('%d.%m.%Y') : 'Belirtilmemiş';
+                document.getElementById('detailExpiryDate').textContent = data.expiry_date ? data.expiry_date.strftime('%d.%m.%Y') : 'Belirtilmemiş';
+                document.getElementById('detailCustomerName').textContent = data.customer_name || 'Belirtilmemiş';
+                document.getElementById('detailEmail').textContent = data.customer_email || 'Belirtilmemiş';
+                document.getElementById('detailActivationCount').textContent = data.activation_count ? data.activation_count + ' kez' : 'Aktivasyon yok';
+                document.getElementById('detailHardwareId').textContent = data.hardware_id || 'Henüz aktive edilmemiş';
+                document.getElementById('detailNotes').textContent = data.notes || 'Not bulunmuyor';
                 new bootstrap.Modal(document.getElementById('licenseDetailModal')).show();
             });
     }
