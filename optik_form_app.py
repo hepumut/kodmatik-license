@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QFileDialog, QLabel, QMenu, QDialog, 
                             QComboBox, QTableWidget, QTableWidgetItem, QScrollArea, QLineEdit, QTextEdit, QGridLayout, QDoubleSpinBox, QSpinBox, QCheckBox, QToolBar, QAction, QProgressDialog, QMessageBox, QStatusBar)
-from PyQt5.QtCore import Qt, QPoint, QSize, QRect, QRectF, QSizeF
+from PyQt5.QtCore import Qt, QPoint, QSize, QRect, QRectF, QSizeF, QTimer
 from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap, QIcon, QImage, QFont
 from PyQt5.QtPrintSupport import QPrinter
 import pandas as pd
@@ -25,6 +25,11 @@ class OptikFormApp(QMainWindow):
         
         # FMT Parser'ı başlat
         self.fmt_parser = FMTParser()
+        
+        # Timer oluştur (lisans durumunu periyodik güncelle)
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.update_license_status)
+        self.update_timer.start(1000)  # Her 1 saniyede bir güncelle
         
         self.initUI()
         self.update_license_status()
@@ -143,7 +148,7 @@ class OptikFormApp(QMainWindow):
         self.statusBar().showMessage('Hazır')
         
         # Pencere ayarları
-        self.setWindowTitle('Optik Form Editörü')
+        self.setWindowTitle('Bilist co. OtoForm')
         self.setGeometry(100, 100, 1200, 800)
 
         # Status bar'a lisans durumu ekle
@@ -152,11 +157,15 @@ class OptikFormApp(QMainWindow):
                 border-top: 1px solid #ddd;
                 background: #f8f9fa;
             }
+            QLabel {
+                margin: 2px 5px;
+            }
         """)
         
         # Sadece bir kere lisans label'ı oluştur
         self.license_label = QLabel()
         self.license_label.setMinimumWidth(150)
+        self.license_label.setAlignment(Qt.AlignCenter)  # Metni ortala
         self.statusBar().addPermanentWidget(self.license_label)
         
         # Lisans durumunu güncelle
@@ -830,6 +839,7 @@ class OptikFormApp(QMainWindow):
                     padding: 2px 8px;
                     border-radius: 4px;
                     background: rgba(255, 255, 255, 0.9);
+                    margin: 2px 5px;
                 }}
             """)
             
@@ -843,6 +853,7 @@ class OptikFormApp(QMainWindow):
                     padding: 2px 8px;
                     border-radius: 4px;
                     background: rgba(255, 255, 255, 0.9);
+                    margin: 2px 5px;
                 }
             """)
 
@@ -888,6 +899,21 @@ class OptikFormApp(QMainWindow):
             
         except Exception as e:
             QMessageBox.warning(self, "Hata", f"Lisans bilgisi alınırken hata oluştu: {e}")
+
+    def moveEvent(self, event):
+        """Pencere taşındığında çağrılır"""
+        super().moveEvent(event)
+        self.update_license_status()
+
+    def resizeEvent(self, event):
+        """Pencere boyutlandırıldığında çağrılır"""
+        super().resizeEvent(event)
+        self.update_license_status()
+
+    def closeEvent(self, event):
+        """Uygulama kapatılırken timer'ı durdur"""
+        self.update_timer.stop()
+        super().closeEvent(event)
 
 class FieldMappingDialog(QDialog):
     def __init__(self, parent, excel_columns, form_fields):
@@ -1050,6 +1076,7 @@ class FormWidget(QWidget):
             # Resmi grid ile orantılı olarak ölçekle
             if self.background_image:
                 scale_ratio = self.scale / old_scale
+                # Resim ölçeğini güncelle
                 self.image_scale *= scale_ratio
             
             self.update_size()
