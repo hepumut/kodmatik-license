@@ -2,14 +2,16 @@ import sys
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QFileDialog, QLabel, QMenu, QDialog, 
-                            QComboBox, QTableWidget, QTableWidgetItem, QScrollArea, QLineEdit, QTextEdit, QGridLayout, QDoubleSpinBox, QSpinBox, QCheckBox, QToolBar, QAction, QProgressDialog, QMessageBox)
+                            QComboBox, QTableWidget, QTableWidgetItem, QScrollArea, QLineEdit, QTextEdit, QGridLayout, QDoubleSpinBox, QSpinBox, QCheckBox, QToolBar, QAction, QProgressDialog, QMessageBox, QStatusBar)
 from PyQt5.QtCore import Qt, QPoint, QSize, QRect, QRectF, QSizeF
-from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap, QIcon, QImage
+from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap, QIcon, QImage, QFont
 from PyQt5.QtPrintSupport import QPrinter
 import pandas as pd
 import cv2
 import numpy as np
 from fmt_parser import FMTParser, FormField
+import json
+from license_checker import LicenseChecker
 
 class OptikFormApp(QMainWindow):
     def __init__(self):
@@ -19,11 +21,13 @@ class OptikFormApp(QMainWindow):
         self.fmt_parser = None
         self.student_data = []
         self.field_mapping = {}
+        self.license_manager = LicenseChecker()
         
         # FMT Parser'ı başlat
         self.fmt_parser = FMTParser()
         
         self.initUI()
+        self.update_license_status()
         
     def initUI(self):
         """Ana pencere arayüzünü oluştur"""
@@ -80,6 +84,14 @@ class OptikFormApp(QMainWindow):
         about_action = QAction('Hakkında', self)
         about_action.triggered.connect(self.show_about_dialog)
         help_menu.addAction(about_action)
+        
+        # Lisans bilgisi için label oluştur
+        self.license_label = QLabel()
+        self.license_label.setMinimumWidth(150)
+        self.statusBar().addPermanentWidget(self.license_label)
+        
+        # Lisans durumunu güncelle
+        self.update_license_status()
         
         # Araç çubuğu
         toolbar = QToolBar()
@@ -141,6 +153,21 @@ class OptikFormApp(QMainWindow):
         # Pencere ayarları
         self.setWindowTitle('Optik Form Editörü')
         self.setGeometry(100, 100, 1200, 800)
+
+        # Status bar'a lisans durumu ekle
+        self.statusBar().setStyleSheet("""
+            QStatusBar {
+                border-top: 1px solid #ddd;
+                background: #f8f9fa;
+            }
+        """)
+        
+        self.license_label = QLabel()
+        self.license_label.setMinimumWidth(150)
+        self.statusBar().addPermanentWidget(self.license_label)
+        
+        # Lisans durumunu güncelle
+        self.update_license_status()
 
     def change_grid_size(self, value):
         """Grid boyutunu değiştir"""
@@ -789,6 +816,86 @@ class OptikFormApp(QMainWindow):
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
 
+    def update_license_status(self):
+        """Lisans durumunu güncelle"""
+        try:
+            success, message = self.license_manager.verify_license()
+            if success:
+                remaining_days = int(message.split(":")[-1].strip())
+                status_text = f"Aktif - {remaining_days} gün"
+                status_color = "#28a745"  # Yeşil
+            else:
+                status_text = "Bulunamadı"
+                status_color = "#dc3545"  # Kırmızı
+            
+            # Status bar'ı güncelle
+            self.license_label.setText(f"Lisans Durumu: {status_text}")
+            self.license_label.setStyleSheet(f"""
+                QLabel {{
+                    color: {status_color};
+                    font-weight: bold;
+                    padding: 2px 8px;
+                    border-radius: 4px;
+                    background: rgba(255, 255, 255, 0.9);
+                }}
+            """)
+            
+        except Exception as e:
+            print(f"Lisans durumu güncelleme hatası: {e}")
+            self.license_label.setText("Lisans Durumu: Hata")
+            self.license_label.setStyleSheet("""
+                QLabel {
+                    color: #dc3545;
+                    font-weight: bold;
+                    padding: 2px 8px;
+                    border-radius: 4px;
+                    background: rgba(255, 255, 255, 0.9);
+                }
+            """)
+
+    def show_license_info(self):
+        """Detaylı lisans bilgisi göster"""
+        try:
+            # Lisans bilgilerini al
+            if os.path.exists('license.json'):
+                with open('license.json', 'r') as f:
+                    data = json.load(f)
+                    license_key = data.get('license_key')
+                    
+                checker = LicenseChecker()
+                success, data = checker.check_license(license_key)
+                
+                if success:
+                    remaining_days = data.get('remaining_days', 0)
+                    expiry_date = data.get('expiry_date', '')
+                    license_type = data.get('license_type', 'Standart')
+                    customer_name = data.get('customer_name', 'Belirtilmemiş')
+                    
+                    info_text = f"""
+                    <h3>Lisans Bilgileri</h3>
+                    <p><b>Durum:</b> Aktif</p>
+                    <p><b>Kalan Süre:</b> {remaining_days} gün</p>
+                    <p><b>Bitiş Tarihi:</b> {expiry_date}</p>
+                    <p><b>Lisans Tipi:</b> {license_type}</p>
+                    <p><b>Lisans Sahibi:</b> {customer_name}</p>
+                    <br>
+                    <p>Lisans yenilemek için <a href='http://www.bilistco.com/otoform'>www.bilistco.com/otoform</a> adresini ziyaret edin.</p>
+                    """
+                else:
+                    info_text = "Lisans geçersiz veya süresi dolmuş."
+            else:
+                info_text = "Lisans bilgisi bulunamadı."
+                
+            msg = QMessageBox()
+            msg.setWindowTitle("Lisans Bilgisi")
+            msg.setTextFormat(Qt.RichText)
+            msg.setText(info_text)
+            msg.setIcon(QMessageBox.Information)
+            msg.exec_()
+            
+        except Exception as e:
+            QMessageBox.warning(self, "Hata", f"Lisans bilgisi alınırken hata oluştu: {e}")
+
 class FieldMappingDialog(QDialog):
     def __init__(self, parent, excel_columns, form_fields):
         super().__init__(parent)
@@ -1055,7 +1162,7 @@ class FormWidget(QWidget):
         
         # Beyaz arkaplan çiz
         painter.fillRect(self.rect(), QColor(255, 255, 255))
-        
+
         # Normal modda resim çiz
         if not hasattr(self, 'pdf_mode'):
             if self.background_image:

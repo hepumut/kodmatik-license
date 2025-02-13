@@ -128,11 +128,8 @@ class LicenseManager:
                     pass
                 return False, "Lisans süresi dolmuş"
             
-            hardware_id = response.get('hardware_id')
-            if hardware_id and hardware_id != self.get_hardware_id():
-                return False, "Lisans başka bir cihaza ait"
-            
             return True, f"Lisans geçerli. Kalan gün: {remaining_days}"
             
         except Exception as e:
+            print(f"Lisans kontrolü hatası: {e}")  # Hata logla
             return False, f"Lisans kontrolü başarısız: {str(e)}" 
