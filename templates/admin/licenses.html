@@ -62,6 +62,21 @@
             </div>
         </div>
 
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Lisans, müşteri adı veya e-posta ara...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-body">
                 <table class="table table-striped">
@@ -314,6 +329,75 @@
             alert('Bir hata oluştu: ' + error);
         });
     }
+
+    // Arama fonksiyonu
+    function searchTable() {
+        const input = document.getElementById('searchInput');
+        const filter = input.value.toLowerCase();
+        const table = document.querySelector('table');
+        const rows = table.getElementsByTagName('tr');
+
+        for (let i = 1; i < rows.length; i++) { // i=1 ile başlık satırını atlıyoruz
+            const row = rows[i];
+            const cells = row.getElementsByTagName('td');
+            let found = false;
+            
+            // İlk 3 hücreyi kontrol et (lisans anahtarı, müşteri adı, e-posta)
+            for (let j = 0; j < 3; j++) {
+                const cell = cells[j];
+                if (cell) {
+                    const text = cell.textContent || cell.innerText;
+                    if (text.toLowerCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            
+            row.style.display = found ? '' : 'none';
+        }
+    }
+
+    // Aramayı temizle
+    function clearSearch() {
+        const input = document.getElementById('searchInput');
+        input.value = '';
+        searchTable();
+    }
+
+    // Input olayını dinle
+    document.getElementById('searchInput').addEventListener('keyup', searchTable);
     </script>
+
+    <style>
+    .input-group {
+        max-width: 500px;
+    }
+
+    .input-group .form-control {
+        border-right: none;
+        padding: 12px 15px;
+    }
+
+    .input-group .btn {
+        border-left: none;
+        padding: 12px 15px;
+    }
+
+    .input-group .btn:hover {
+        background-color: #f8f9fa;
+        color: #dc3545;
+    }
+
+    #searchInput:focus {
+        box-shadow: none;
+        border-color: #ced4da;
+    }
+
+    .input-group:focus-within {
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        border-radius: 0.25rem;
+    }
+    </style>
 </body>
 </html> 
